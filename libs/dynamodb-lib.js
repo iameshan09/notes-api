@@ -1,11 +1,20 @@
-import AWS from "aws-sdk";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import {
+  DynamoDBDocumentClient,
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  UpdateCommand,
+  DeleteCommand,
+} from "@aws-sdk/lib-dynamodb";
 
-const client = new AWS.DynamoDB.DocumentClient();
+const client = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(client);
 
 export default {
-  get: (params) => client.get(params).promise(),
-  put: (params) => client.put(params).promise(),
-  query: (params) => client.query(params).promise(),
-  update: (params) => client.update(params).promise(),
-  delete: (params) => client.delete(params).promise(),
+  get: (params) => docClient.send(new GetCommand(params)),
+  put: (params) => docClient.send(new PutCommand(params)),
+  query: (params) => docClient.send(new QueryCommand(params)),
+  update: (params) => docClient.send(new UpdateCommand(params)),
+  delete: (params) => docClient.send(new DeleteCommand(params)),
 };

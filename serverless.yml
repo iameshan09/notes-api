@@ -8,6 +8,13 @@ plugins:
   - serverless-offline
   - serverless-dotenv-plugin # Load .env as environment variables
 
+custom:
+  # Our stage is based on what is passed in when running serverless
+  # commands. Or fallsback to what we have set in the provider section.
+  stage: ${opt:stage, self:provider.stage}
+  # Set the table name here so we can use it while testing locally
+  tableName: ${self:custom.stage}-notes
+
 provider:
   name: aws
   runtime: nodejs20.x
@@ -17,33 +24,39 @@ provider:
   # These environment variables are made available to our functions
   # under process.env.
   environment:
-    tableName: notes
+    tableName: ${self:custom.tableName}
+    stripeSecretKey: ${env:STRIPE_SECRET_KEY}
 
   # 'iamRoleStatements' defines the permission policy for the Lambda function.
   # In this case Lambda functions are granted with permissions to access DynamoDB.
   iamRoleStatements:
     - Effect: Allow
       Action:
-        - dynamodb:Scan
+        - dynamodb:DescribeTable
         - dynamodb:Query
+        - dynamodb:Scan
         - dynamodb:GetItem
         - dynamodb:PutItem
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
-        - dynamodb:DescribeTable
-      Resource: "arn:aws:dynamodb:us-east-1:*:*"
+      # Restrict our IAM role permissions to
+      # the specific table for the stage
+      Resource:
+        - "Fn::GetAtt": [ NotesTable, Arn ]
 
 functions:
   # Defines an HTTP API endpoint that calls the main function in create.js
   # - path: url path is /notes
   # - method: POST request
+  # - authorizer: authenticate using the AWS IAM role
   create:
     handler: create.main
     events:
       - http:
           path: notes
-          cors: true
           method: post
+          authorizer: aws_iam
+
   get:
     # Defines an HTTP API endpoint that calls the main function in get.js
     # - path: url path is /notes/{id}
@@ -52,8 +65,9 @@ functions:
     events:
       - http:
           path: notes/{id}
-          cors: true
           method: get
+          authorizer: aws_iam
+
   list:
     # Defines an HTTP API endpoint that calls the main function in list.js
     # - path: url path is /notes
@@ -62,8 +76,9 @@ functions:
     events:
       - http:
           path: notes
-          cors: true
           method: get
+          authorizer: aws_iam
+
   update:
     # Defines an HTTP API endpoint that calls the main function in update.js
     # - path: url path is /notes/{id}
@@ -72,8 +87,9 @@ functions:
     events:
       - http:
           path: notes/{id}
-          cors: true
           method: put
+          authorizer: aws_iam
+
   delete:
     # Defines an HTTP API endpoint that calls the main function in delete.js
     # - path: url path is /notes/{id}
@@ -82,5 +98,33 @@ functions:
     events:
       - http:
           path: notes/{id}
-          cors: true
           method: delete
+          authorizer: aws_iam
+
+  billing:
+    # Defines an HTTP API endpoint that calls the main function in billing.js
+    # - path: url path is /billing
+    # - method: POST request
+    handler: billing.main
+    events:
+      - http:
+          path: billing
+          cors: true
+          method: post
+          authorizer: aws_iam
+
+# Create our resources with separate CloudFormation templates
+# Create our resources with separate CloudFormation templates
+# Create our resources with separate CloudFormation templates
+# Create our resources with separate CloudFormation templates
+# Create our resources with separate CloudFormation templates
+resources:
+  # API Gateway Errors
+  - ${file(resources/api-gateway-errors.yml)}
+  # DynamoDB
+  - ${file(resources/dynamodb-table.yml)}
+  # S3
+  - ${file(resources/s3-bucket.yml)}
+  # Cognito
+  - ${file(resources/cognito-user-pool.yml)}
+  - ${file(resources/cognito-identity-pool.yml)}
